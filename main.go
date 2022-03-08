@@ -5,9 +5,7 @@ import (
 	"logagent/etcd"
 	"logagent/kafka"
 	"logagent/tailfile"
-	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/go-ini/ini"
 	"github.com/sirupsen/logrus"
 )
@@ -29,28 +27,8 @@ type CollectConfig struct {
 }
 
 type EtcdConfig struct {
-	Address string `ini:"address"`
+	Address    string `ini:"address"`
 	CollectKey string `ini:"collect_key"`
-}
-
-func run() (err error) {
-	for {
-		line, ok := <-tailfile.TailObj.Lines
-		if !ok {
-			logrus.Warn("tail file close reopen, filename: %s\n", tailfile.TailObj.Filename)
-			time.Sleep(time.Second)
-			continue
-		}
-		if len(line.Text) == 0 {
-			continue
-		}
-		msg := &sarama.ProducerMessage{}
-		msg.Topic = "web_log"
-		msg.Value = sarama.StringEncoder(line.Text)
-		logrus.Info("line.Text: %v", line.Text)
-		kafka.MsgChan <- msg
-	}
-	return
 }
 
 func main() {
@@ -89,6 +67,8 @@ func main() {
 	}
 	fmt.Println(allConf)
 
+	go etcd.WatchConf(configObj.EtcdConfig.CollectKey)
+
 	err = tailfile.Init(allConf)
 	if err != nil {
 		logrus.Errorf("init tail failed, err: %v", err)
@@ -96,8 +76,11 @@ func main() {
 	}
 	logrus.Info("init tailfile success!")
 
-	err = run()
 	if err != nil {
 		logrus.Error()
+	}
+
+	select {
+
 	}
 }
