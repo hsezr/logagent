@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"logagent/common"
 	"logagent/etcd"
 	"logagent/kafka"
 	"logagent/tailfile"
@@ -12,7 +13,6 @@ import (
 
 type Config struct {
 	KafkaConfig   `ini:"kafka"`
-	CollectConfig `ini:"collect"`
 	EtcdConfig    `ini:"etcd"`
 }
 
@@ -22,9 +22,6 @@ type KafkaConfig struct {
 	Chansize int64  `ini:"chan_size"`
 }
 
-type CollectConfig struct {
-	LogFilePath string `ini:"logfile_path"`
-}
 
 type EtcdConfig struct {
 	Address    string `ini:"address"`
@@ -32,6 +29,12 @@ type EtcdConfig struct {
 }
 
 func main() {
+	//获取本机IP
+	ip, err := common.GetOutboundIP()
+	if err != nil {
+		logrus.Errorf("get ip failed, err: %v", err)
+		return
+	}
 	var configObj = new(Config)
 	// cfg, err := ini.Load("./conf/config.ini")
 	// if err != nil {
@@ -40,7 +43,7 @@ func main() {
 	// }
 	// kafkaAddr := cfg.Section("kafka").Key("address").String()
 	// fmt.Println(kafkaAddr)
-	err := ini.MapTo(configObj, "./conf/config.ini")
+	err = ini.MapTo(configObj, "./conf/config.ini")
 	if err != nil {
 		logrus.Errorf("load config failed, err:%v", err)
 		return
@@ -60,6 +63,7 @@ func main() {
 		return
 	}
 	//从etcd中拉取要收集的日志的配置项
+	configObj.CollectKey = fmt.Sprintf(configObj.CollectKey, ip)
 	allConf, err := etcd.GetConf(configObj.EtcdConfig.CollectKey)
 	if err != nil {
 		logrus.Errorf("getconf from etcd failed, err:%v", err)

@@ -57,20 +57,22 @@ func GetConf(key string) (collectEntryList []common.CollectEntry, err error) {
 
 //监控etcd中日志收集项配置变化的函数
 func WatchConf(key string) {
-	for {
-		var newConf []common.CollectEntry
-		watchCh := cli.Watch(context.Background(), key)
-		for wresp := range watchCh {
-			logrus.Info("get new conf from etcd!")
-			for _, evt := range wresp.Events {
-				fmt.Printf("type:%s key:%s value:%s\n", evt.Type, evt.Kv.Key, evt.Kv.Value)
-				err := json.Unmarshal(evt.Kv.Value, &newConf)
-				if err != nil {
-					logrus.Errorf("json unmarshal new conf failed, err:%v", err)
-					continue
-				}
+	watchCh := cli.Watch(context.Background(), key)
+	for wresp := range watchCh {
+		logrus.Info("get new conf from etcd!")
+		for _, evt := range wresp.Events {
+			fmt.Printf("type:%s key:%s value:%s\n", evt.Type, evt.Kv.Key, evt.Kv.Value)
+			var newConf []common.CollectEntry
+			if evt.Type == clientv3.EventTypeDelete {
 				tailfile.SendNewConf(newConf)
+				continue
 			}
+			err := json.Unmarshal(evt.Kv.Value, &newConf)
+			if err != nil {
+				logrus.Errorf("json unmarshal new conf failed, err:%v", err)
+				continue
+			}
+			tailfile.SendNewConf(newConf)
 		}
 	}
 }
